@@ -1,0 +1,107 @@
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_HOST: tcp://localhost:2375
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_IMAGE: elmst/syndication
+  K8S_DEPLOYMENT_NAME: syndication
+  K8S_CONTAINER_NAME: syndication
+
+test:
+  stage: test
+  image: docker:latest
+  services:
+    - docker:19-dind
+  before_script:
+    - echo "$DOCKER_PASSWORD" | docker login -u $DOCKER_USERNAME --password-stdin
+    - docker build --target=dev -t $DOCKER_IMAGE .
+  script:
+    - docker run --rm $DOCKER_IMAGE yarn format:check
+    - docker run --rm $DOCKER_IMAGE yarn lint:check
+    - docker run --rm $DOCKER_IMAGE yarn test
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:19-dind
+  before_script:
+    - echo "$DOCKER_PASSWORD" | docker login -u $DOCKER_USERNAME --password-stdin
+    - export VERSION=$(echo ${CI_COMMIT_TAG} | sed -rne 's/^v([0-9]+\.[0-9]+\.[0-9]+)$/\1/p')
+    - '[ "$VERSION" = "" ] && export VERSION=$CI_COMMIT_SHORT_SHA || true'
+  script:
+    - docker build --build-arg VERSION=$VERSION -t $DOCKER_IMAGE:$VERSION .
+    - docker push $DOCKER_IMAGE:$VERSION
+    - '[ "$CI_COMMIT_BRANCH" = "master" ] && docker tag $DOCKER_IMAGE:$VERSION $DOCKER_IMAGE:latest && docker push $DOCKER_IMAGE:latest || true'
+
+deploy_dev:
+  stage: deploy
+  image: dtzar/helm-kubectl
+  before_script:
+    - export VERSION=$(echo ${CI_COMMIT_TAG} | sed -rne 's/^v([0-9]+\.[0-9]+\.[0-9]+)$/\1/p')
+    - '[ "$VERSION" = "" ] && export VERSION=$CI_COMMIT_SHORT_SHA || true'
+  script:
+    - kubectl config set-cluster k8s --server="https://${K8S_DEV_CLUSTER_ENDPOINT}"
+    - kubectl config set clusters.k8s.certificate-authority-data "${K8S_DEV_CLUSTER_CA_CERTIFICATE}"
+    - kubectl config set-credentials gitlab --token="$(echo "${K8S_DEV_SERVICE_ACCOUNT_TOKEN}" | base64 -d)"
+    - kubectl config set-context default --cluster=k8s --user=gitlab --namespace=default
+    - kubectl config use-context default
+    - kubectl set image deployment/${K8S_DEPLOYMENT_NAME} ${K8S_CONTAINER_NAME}=$DOCKER_IMAGE:$VERSION
+  only:
+    - develop
+
+deploy_dev_manual:
+  stage: deploy
+  image: dtzar/helm-kubectl
+  before_script:
+    - export VERSION=$(echo ${CI_COMMIT_TAG} | sed -rne 's/^v([0-9]+\.[0-9]+\.[0-9]+)$/\1/p')
+    - '[ "$VERSION" = "" ] && export VERSION=$CI_COMMIT_SHORT_SHA || true'
+  script:
+    - kubectl config set-cluster k8s --server="https://${K8S_DEV_CLUSTER_ENDPOINT}"
+    - kubectl config set clusters.k8s.certificate-authority-data "${K8S_DEV_CLUSTER_CA_CERTIFICATE}"
+    - kubectl config set-credentials gitlab --token="$(echo "${K8S_DEV_SERVICE_ACCOUNT_TOKEN}" | base64 -d)"
+    - kubectl config set-context default --cluster=k8s --user=gitlab --namespace=default
+    - kubectl config use-context default
+    - kubectl set image deployment/${K8S_DEPLOYMENT_NAME} ${K8S_CONTAINER_NAME}=$DOCKER_IMAGE:$VERSION
+  when: manual
+  except:
+    - develop
+
+deploy_stg_manual:
+  stage: deploy
+  image: dtzar/helm-kubectl
+  before_script:
+    - export VERSION=$(echo ${CI_COMMIT_TAG} | sed -rne 's/^v([0-9]+\.[0-9]+\.[0-9]+)$/\1/p')
+    - '[ "$VERSION" = "" ] && export VERSION=$CI_COMMIT_SHORT_SHA || true'
+  script:
+    - kubectl config set-cluster k8s --server="https://${K8S_STG_CLUSTER_ENDPOINT}"
+    - kubectl config set clusters.k8s.certificate-authority-data "${K8S_STG_CLUSTER_CA_CERTIFICATE}"
+    - kubectl config set-credentials gitlab --token="$(echo "${K8S_STG_SERVICE_ACCOUNT_TOKEN}" | base64 -d)"
+    - kubectl config set-context default --cluster=k8s --user=gitlab --namespace=default
+    - kubectl config use-context default
+    - kubectl set image deployment/${K8S_DEPLOYMENT_NAME} ${K8S_CONTAINER_NAME}=$DOCKER_IMAGE:$VERSION
+  when: manual
+
+deploy_prod:
+  stage: deploy
+  image: dtzar/helm-kubectl
+  services:
+    - docker:19-dind
+  before_script:
+    - export VERSION=$(echo ${CI_COMMIT_TAG} | sed -rne 's/^v([0-9]+\.[0-9]+\.[0-9]+)$/\1/p')
+    - '[ "$VERSION" = "" ] && export VERSION=$CI_COMMIT_SHORT_SHA || true'
+  script:
+    - kubectl config set-cluster k8s --server="https://${K8S_PROD_CLUSTER_ENDPOINT}"
+    - kubectl config set clusters.k8s.certificate-authority-data "${K8S_PROD_CLUSTER_CA_CERTIFICATE}"
+    - kubectl config set-credentials gitlab --token="$(echo "${K8S_PROD_SERVICE_ACCOUNT_TOKEN}" | base64 -d)"
+    - kubectl config set-context default --cluster=k8s --user=gitlab --namespace=default
+    - kubectl config use-context default
+    - kubectl set image deployment/${K8S_DEPLOYMENT_NAME} ${K8S_CONTAINER_NAME}=$DOCKER_IMAGE:$VERSION
+  only:
+    - /^v[0-9]+\.[0-9]+\.[0-9]+$/
+  except:
+    - branches
