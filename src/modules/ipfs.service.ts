@@ -4,6 +4,8 @@ import { IPFSModuleOptions } from './interfaces';
 
 let createClient;
 
+const { IPFS_URL } = process.env;
+
 @Injectable()
 export class IpfsService {
   // DEBUG: Give IPFS Node a type when implemented
@@ -15,6 +17,6 @@ export class IpfsService {
     if (!createClient) {
       createClient = require('ipfs-http-client');
     }
-    return this._ipfsClient ? this._ipfsClient : (this._ipfsClient = createClient('http://198.211.104.190:5001'));
+    return this._ipfsClient ? this._ipfsClient : (this._ipfsClient = createClient(IPFS_URL));
   }
 }

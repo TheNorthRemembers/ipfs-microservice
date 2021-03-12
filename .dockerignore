@@ -35,3 +35,5 @@ lerna-debug.log*
 
 # Project files
 .env
+ipfs.yaml
+ipfs-ingress.yaml
