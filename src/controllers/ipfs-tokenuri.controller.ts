@@ -3,15 +3,13 @@ import { IpfsService } from '@app/modules/ipfs.service';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateTokenUriDto } from '@app/dto';
 
-// @ApiBearerAuth()
 @Controller('tokenuri')
-// @UseGuards(JwtAuthGuard)
 @ApiTags('ipfs-tokenuri')
-export class IpfsController {
+export class IpfsTokenuriController {
   // add ipfs service
   constructor(private ipfsService: IpfsService) {}
   @Post()
-  @ApiOperation({ summary: 'Create file to IPFS', operationId: 'createIPFSFile' })
+  @ApiOperation({ summary: 'Create TokenUri File and Upload to IPFS', operationId: 'createTokenUriFile' })
   async tokenuri(@Body() body: CreateTokenUriDto) {
     const client = await this.ipfsService.getClient();
 
