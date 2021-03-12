@@ -1,1 +1,1 @@
-export * from './ipfs.service';
+export * from './file.service';

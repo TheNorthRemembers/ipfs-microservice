@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class IpfsService {
-  constructor(private configService: ConfigService) {}
+export class FileService {
+  constructor(private configService: ConfigService ){}
 
-  get(): string {
+  get(): any {
     return { test:'hi' };
   }
 }

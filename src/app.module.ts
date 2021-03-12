@@ -2,7 +2,7 @@ import { AuthModule } from '@app/auth/auth.module';
 import { WinstonConfigFactory } from '@app/config';
 import appConfig from '@app/config/app.config';
 import { AppController, HealthController, IpfsController } from '@app/controllers';
-import { IpfsService } from '@app/services';
+import { FileService } from '@app/services';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { CqrsModule } from '@nestjs/cqrs';
@@ -10,10 +10,11 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { TerminusModule } from '@nestjs/terminus';
 import { WinstonModule } from 'nest-winston';
 import { ConsoleModule } from 'nestjs-console';
+import { IpfsModule } from '@app/modules';
 
 const controllers = [AppController, HealthController, IpfsController];
 const queryHandlers = [];
-const services = [IpfsService];
+const services = [FileService];
 
 @Module({
   imports: [
@@ -31,9 +32,9 @@ const services = [IpfsService];
       useClass: WinstonConfigFactory,
     }),
     AuthModule,
+    IpfsModule.register({}, true),
   ],
   controllers: [...controllers],
   providers: [...queryHandlers, ...services],
-  exports: [],
 })
 export class AppModule {}
