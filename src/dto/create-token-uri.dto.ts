@@ -5,7 +5,7 @@ export class CreateTokenUriDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsString()
-  title: string;
+  name: string;
 
   @ApiProperty()
   @IsNotEmpty()
